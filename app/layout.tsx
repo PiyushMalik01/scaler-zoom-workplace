@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import "./globals.css";
 import "./workplace.css";
+import "./landing.css";
 import AuthProvider from "@/components/AuthProvider";
 export const metadata: Metadata = {
   title: "Zoom Workplace | Meetings",

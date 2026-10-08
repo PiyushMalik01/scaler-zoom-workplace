@@ -110,7 +110,7 @@ export default function MeetingRoom({ identifier }: { identifier: string }) {
   }
   function leave() {
     room.leave();
-    router.push("/");
+    router.push(user ? "/workplace" : "/");
   }
   function sendChat(event: React.FormEvent) {
     event.preventDefault();
@@ -166,14 +166,14 @@ export default function MeetingRoom({ identifier }: { identifier: string }) {
     return (
       <div className="prejoin-page">
         <header>
-          <a className="brand" href="/">
+            <a className="brand" href={user ? "/workplace" : "/"}>
             <Brand workplace />
           </a>
           <a
             className="text-button"
             href={
               user
-                ? "/"
+                ? "/workplace"
                 : `/signin?next=${encodeURIComponent(`/meeting/${identifier}`)}`
             }
           >

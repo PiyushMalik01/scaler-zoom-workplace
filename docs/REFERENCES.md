@@ -10,6 +10,9 @@ Open-source projects reviewed for feature comparison:
 
 Primary product and technical references:
 
+- [Zoom public homepage](https://www.zoom.com/en/): inspected for its dark navigation, blue/purple gradient, Newsreader headline, Inter body type, product-card carousel, and responsive behavior. The landing page adapts the layout to the meeting features this assignment actually implements. Meeting artwork is from [Zoom's public homepage asset](https://st1.zoom.us/homepage/20260930-1234/primary/dist/assets/zoommedia/meetings.jpg); the other previews use original HTML/CSS.
+- [Inter](https://fonts.google.com/specimen/Inter) and [Newsreader](https://fonts.google.com/specimen/Newsreader): self-hosted variable fonts, with SIL Open Font License files included in `public/fonts/`.
+
 - [Zoom web app interface](https://support.zoom.com/hc/en/article?id=zm_kb&sysparm_article=KB0064261): signed-out actions, left navigation, header/search, and meeting controls. Used for the current interface revision.
 - [Zoom web app welcome](https://app.zoom.us/wc/), [Sign in](https://www.zoom.us/signin), and [Sign up](https://www.zoom.us/signup): inspected live for welcome proportions, auth header, email-first login, field/button styling, and signup illustration. Account registration is adapted to the local backend and does not simulate Zoom's commercial verification/OAuth flows.
 - Brand assets: the Zoom SVG wordmark was saved from the official sign-in page; the signup illustration is from [Zoom's signup asset](https://st1.zoom.us/fe-static/fe-signup-login-active-v3/assets/banner-step-1.DTtJ7nly.png). They are used only to reproduce the educational brief's product appearance, with no affiliation implied.
@@ -24,4 +27,4 @@ Primary product and technical references:
 - [Render persistent disks](https://render.com/docs/disks): SQLite storage for a permanent deployment.
 - [Cloudflare Quick Tunnels](https://developers.cloudflare.com/tunnel/get-started/quick-tunnels/): temporary public HTTPS previews.
 
-Zoom’s name and wordmark are used to match the educational brief. This project is not affiliated with Zoom. Icons are from Lucide; the web app uses system fonts and the auth pages use a Helvetica/Arial fallback for Almaden Sans. No Zoom SDK or paid video service is required.
+Zoom’s name and wordmark are used to match the educational brief. This project is not affiliated with Zoom. Icons are from Lucide; the landing page uses Inter/Newsreader, the workspace uses system fonts, and the auth pages use a Helvetica/Arial fallback for Almaden Sans. No Zoom SDK or paid video service is required.

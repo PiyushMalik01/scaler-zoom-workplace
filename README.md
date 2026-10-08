@@ -31,6 +31,8 @@ Open **http://localhost:3000**. One command starts Next.js and FastAPI. The laun
 
 Click **Sign In → Use demo account → Sign In** to explore seeded meetings. The sample account is `ankit.sharma@example.com` / `ZoomDemo123!`. New accounts start with their own empty workspace. Passwords require at least eight characters, uppercase and lowercase letters, and a number. This independent assignment app uses its own accounts; real Zoom credentials do not work.
 
+The public landing page is at `/`, with Zoom-reference navigation, a gradient hero, product carousel, feature tabs, search, responsive mobile navigation, and frequently asked questions. Sign-in and signup open `/workplace`, which contains the meeting dashboard. The public page remains available when signed in and provides an Open Workplace link. Guests can join directly from the landing page.
+
 Production:
 
 ```sh
@@ -46,6 +48,7 @@ docker compose up --build
 
 ## Features
 
+- Zoom-style public homepage with working signup, sign-in, guest joining, product search/carousel/tabs, mobile navigation, and FAQ; self-hosted Inter and Newsreader fonts.
 - Zoom-reference welcome and auth screens, left navigation, compact header, New Meeting, Join, Schedule, Share Screen, clock/agenda, upcoming/recent meetings, and account/profile/settings menus.
 - Signup, email-first sign-in, password visibility, validation/errors, Stay signed in, and Sign Out. Account-owned meetings and host roles persist across sessions; guests can join through invitations.
 - Instant meetings with unique 11-digit IDs and shareable invitations.

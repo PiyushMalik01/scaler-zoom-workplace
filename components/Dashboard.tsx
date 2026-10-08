@@ -156,7 +156,7 @@ export default function Dashboard() {
   return (
     <div className="workplace">
       <header className="app-header">
-        <a className="brand" href="/" aria-label="Zoom Workplace home">
+        <a className="brand" href="/workplace" aria-label="Zoom Workplace home">
           <Brand workplace />
         </a>
         <div className="header-right">

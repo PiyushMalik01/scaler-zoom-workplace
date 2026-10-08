@@ -22,7 +22,7 @@ export default function AuthForm({ mode }: { mode: "signin" | "signup" }) {
   const [passwordStep, setPasswordStep] = useState(false);
   function destination() {
     const next = new URLSearchParams(location.search).get("next");
-    return next && /^\/meeting\/\d{11}(?:\?|$)/.test(next) ? next : "/";
+    return next && /^\/meeting\/\d{11}(?:\?|$)/.test(next) ? next : "/workplace";
   }
   useEffect(() => {
     if (auth.user) router.replace(destination());

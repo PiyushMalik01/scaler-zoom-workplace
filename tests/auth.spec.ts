@@ -7,10 +7,13 @@ test("welcome, signup, sign out, wrong password and persistent login", async ({
   page.on("pageerror", (error) => errors.push(error.message));
   const email = `signup.${Date.now()}@example.com`;
   await page.goto("/");
-  await expect(
-    page.getByRole("heading", { name: "Workplace", exact: true }),
-  ).toBeVisible();
-  await page.getByRole("link", { name: "Sign Up", exact: true }).click();
+  await expect(page.getByRole("heading", { level: 1 })).toContainText(
+    "when work connects",
+  );
+  await page
+    .locator(".landing-header")
+    .getByRole("link", { name: "Sign Up Free", exact: true })
+    .click();
   await page.getByLabel("First name").fill("Priya");
   await page.getByLabel("Last name").fill("Malik");
   await page.getByLabel("Email Address").fill(email);
@@ -31,10 +34,13 @@ test("welcome, signup, sign out, wrong password and persistent login", async ({
   await expect(page.locator(".account-summary")).toContainText("Priya Malik");
   await expect(page.locator(".account-summary")).toContainText(email);
   await page.getByRole("button", { name: "Sign Out", exact: true }).click();
-  await expect(
-    page.getByRole("heading", { name: "Workplace", exact: true }),
-  ).toBeVisible();
-  await page.getByRole("link", { name: "Sign In", exact: true }).click();
+  await expect(page.getByRole("heading", { level: 1 })).toContainText(
+    "when work connects",
+  );
+  await page
+    .locator(".landing-header")
+    .getByRole("link", { name: "Sign In", exact: true })
+    .click();
   await page.getByLabel("Email Address").fill(email);
   await page.getByRole("button", { name: "Next", exact: true }).click();
   await page.getByLabel("Password", { exact: true }).fill("WrongPassword123!");
@@ -71,7 +77,13 @@ test("signed-out guest can join and auth screens fit mobile and tablet", async (
     }
   }
   await page.goto("/");
-  await page.getByRole("button", { name: "Join Meeting", exact: true }).click();
+  await page
+    .getByRole("button", { name: "Open navigation", exact: true })
+    .click();
+  await page
+    .locator(".landing-mobile-menu")
+    .getByRole("button", { name: "Join Meeting", exact: true })
+    .click();
   await expect(
     page.getByRole("dialog", { name: "Join Meeting" }),
   ).toBeVisible();
@@ -105,7 +117,7 @@ test("signing out in another tab closes a host room and stops its camera", async
       ).getTracks();
     });
   const second = await context.newPage();
-  await second.goto("/");
+  await second.goto("/workplace");
   await second.getByRole("button", { name: "Profile", exact: true }).click();
   await second.getByRole("button", { name: "Sign Out", exact: true }).click();
   await expect(
@@ -118,7 +130,7 @@ test("signing out in another tab closes a host room and stops its camera", async
       ).callTracks.every((track) => track.readyState === "ended"),
     ),
   ).toBe(true);
-  await expect(
-    second.getByRole("heading", { name: "Workplace", exact: true }),
-  ).toBeVisible();
+  await expect(second.getByRole("heading", { level: 1 })).toContainText(
+    "when work connects",
+  );
 });
