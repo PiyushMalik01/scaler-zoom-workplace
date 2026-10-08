@@ -126,7 +126,8 @@ See the [validation record](docs/VALIDATION.md) for evidence and test boundaries
 | [API reference](docs/API.md) | REST endpoints, request/response examples, session rules, WebSocket messages, and errors |
 | [Configuration and future deployment](docs/DEPLOYMENT.md) | Environment variables, local troubleshooting, Docker/hosting preparation, and deferred deployment |
 | [Validation](docs/VALIDATION.md) | Build/API/browser checks, visual checks, and untested scenarios |
-| [Research and asset references](docs/REFERENCES.md) | Existing clones reviewed, primary references, brand assets, and font licenses |
+| [Implementation notes](docs/IMPLEMENTATION_NOTES.md) | Application decisions to understand and explain during evaluation |
+| [Product references and asset attribution](docs/REFERENCES.md) | Zoom design references, included artwork, icon/font attribution, and technical documentation |
 | [Screenshots](docs/SCREENSHOTS.md) | Landing, dashboard, sign-in, signup, and mobile previews |
 
 ## Source organization
@@ -151,4 +152,4 @@ This is a small-group WebRTC mesh using **one FastAPI worker**. SQLite stores ac
 
 The application does not implement commercial Zoom OAuth/SSO, email/age verification, password recovery, recording, or a media-server-enforced mute. Exact pixel parity with every current Zoom screen has not been established. These boundaries and remaining checks are recorded in the assignment checklist.
 
-All application code and database design were written for this assignment; no existing clone repository was copied. Zoom's wordmark and referenced artwork are attributed in [REFERENCES.md](docs/REFERENCES.md); the included fonts have their own license files. This educational project is not affiliated with Zoom.
+The meeting workflows, account/session authorization, WebRTC signaling, and SQLite schema were implemented for this assignment. The brief permits AI assistance; [implementation notes](docs/IMPLEMENTATION_NOTES.md) explain the application decisions for evaluation. Zoom's wordmark and included artwork are attributed in [REFERENCES.md](docs/REFERENCES.md); fonts retain their license files. This educational project is not affiliated with Zoom.

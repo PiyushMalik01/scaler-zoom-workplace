@@ -31,7 +31,8 @@ Core functional workflows are implemented and locally validated. Deployment is i
 | Show scheduled meetings as upcoming | Complete | Home agenda and upcoming Meetings view |
 | Seed sample data | Complete | Demo account plus three future/two previous meetings on first initialization |
 | README with setup, stack, assumptions | Complete | Root README and linked technical documentation |
-| Original work | Complete | Application code and schema authored for the assignment; researched clones and referenced assets attributed |
+| Original work | Implemented | Application-specific meeting/account/signaling logic and schema; implementation decisions documented, included assets attributed |
+| AI assistance and code understanding | AI assistance permitted; submitter preparation required | Developed with AI assistance; `docs/IMPLEMENTATION_NOTES.md` and architecture/source files support the required code explanation |
 
 ## Bonus requirements and requested additions
 
@@ -67,6 +68,6 @@ OAuth/SSO, email verification, password reset, cloud recording, an SFU, and paid
 4. Create an instant meeting; join the invitation in an incognito window.
 5. Demonstrate real video/audio, chat, screen sharing, mute all, participant removal, and end for everyone.
 6. Create a separate account and confirm its dashboard is isolated from the demo account.
-7. Review `backend/database.py`, `backend/security.py`, `backend/main.py`, and `lib/useMeeting.ts` alongside the architecture/API documentation.
+7. Review `backend/database.py`, `backend/security.py`, `backend/main.py`, and `lib/useMeeting.ts` alongside the [implementation notes](IMPLEMENTATION_NOTES.md) and architecture/API documentation; be prepared to explain the code as the brief requires.
 
 Repository: [github.com/PiyushMalik01/scaler-zoom-workplace](https://github.com/PiyushMalik01/scaler-zoom-workplace). Deployment link: pending; deployment remains deferred.
