@@ -98,7 +98,7 @@ For a local Docker installation with persistent SQLite storage:
 docker compose up --build
 ```
 
-Docker configuration is included but has not been built locally because the Docker daemon was unavailable during validation.
+The [Dockerfile](Dockerfile) packages both servers with a non-root runtime and a SQLite-backed health check. The image build, all 12 API tests inside the image, and all 7 browser tests against the running container passed. SQLite data also survived recreating the container with the same named volume. Stop other applications using port 3000 before starting Compose; see [Docker instructions](docs/DEPLOYMENT.md#docker-preparation) for direct build/run commands and alternate ports.
 
 ## Validation
 

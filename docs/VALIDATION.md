@@ -6,6 +6,9 @@ Validated on Windows with Node 22.17.1, Python 3.12, and Chromium using fake med
 - TypeScript typecheck: passed.
 - Twelve isolated API/WebSocket tests: passed.
 - Seven browser product tests: passed against the complete local production server.
+- Docker image build: passed on Docker Desktop's Linux engine; container ran as the non-root `node` user and reported healthy.
+- Docker API/browser validation: all 12 API tests passed inside the image, and all 7 browser tests passed against the container on local port 3002.
+- Docker persistence: recreating the container with the same named volume retained accounts, meetings, attendance, and chat.
 - Same-origin public HTTPS `/api/health`: returned SQLite status `ok` during verification. The temporary tunnel was subsequently stopped at the user’s request; deployment is deferred.
 - Real WebRTC diagnostic: both peers reached `connected`; inbound video frames decoded on both peers (over 200 frames in the diagnostic call); audio/video tracks remained live.
 
@@ -19,4 +22,4 @@ The public homepage was added using Zoom's current marketing homepage as the ref
 
 Screenshots can be regenerated with `node scripts/capture.mjs` while the app is running. `PLAYWRIGHT_CHROMIUM_EXECUTABLE` can select an existing Chromium installation. The tracked [documentation screenshots](SCREENSHOTS.md) were regenerated against a separate local production server with a freshly seeded database; the primary local database was preserved. One Windows browser run encountered an unavailable fake camera; the final full suite passed with actual video frames in both directions.
 
-Docker assets are provided but were not built locally because the Docker daemon was not running. Cross-network calls without a configured TURN relay were not tested. Deployment is deferred at the user’s request, and the temporary public preview has been stopped. The local production app remains available at http://localhost:3000. The repo includes a Render Blueprint and an optional GitHub Actions workflow template in `docs/ci-workflow.example.yml`. The connected GitHub credential does not have permission to publish active workflow files; copy the template to `.github/workflows/ci.yml` using your own workflow-enabled credential to enable CI.
+The Docker image was validated locally; the disposable test container used its own database volume and did not alter the primary local database or other containers. Cross-network calls without a configured TURN relay were not tested. Deployment is deferred at the user’s request, and the temporary public preview has been stopped. The local production app remains available at http://localhost:3000. The repo includes a Render Blueprint and an optional GitHub Actions workflow template in `docs/ci-workflow.example.yml`. The connected GitHub credential does not have permission to publish active workflow files; copy the template to `.github/workflows/ci.yml` using your own workflow-enabled credential to enable CI.

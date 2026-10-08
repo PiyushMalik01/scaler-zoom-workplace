@@ -43,6 +43,7 @@ Core functional workflows are implemented and locally validated. Deployment is i
 | Zoom-style public landing page | Complete | Gradient hero, navigation, carousel, feature search/tabs, guest join, FAQ, account entry points |
 | Live video/audio | Complete locally | Two independent browser sessions decoded actual WebRTC video frames |
 | Screen sharing, chat, raised hand | Complete locally | Browser meeting-flow tests and persisted chat history |
+| Docker packaging and local validation | Complete | Multi-stage image built; non-root/healthy container; 12 API and 7 browser tests passed; named-volume data survived container recreation |
 
 The PDF's “No Login Required” note allowed a default user to simplify the assignment. The user's later instruction explicitly requested login/signup. The final version therefore requires sign-in for creating/scheduling meetings, provides a demo account shortcut, and allows guest invitation joining.
 
@@ -54,7 +55,6 @@ The PDF's “No Login Required” note allowed a default user to simplify the as
 | Public deployed application | Deferred by explicit user instruction. Hosting configuration is supplied; no live submission URL is available. |
 | Durable hosted SQLite storage | Configure a persistent volume/disk when deployment is authorized. |
 | Cross-network media validation | Local two-browser calls passed. Configure TURN and test independent networks before a public demonstration. |
-| Docker runtime verification | Dockerfile/Compose are provided; the local Docker daemon was unavailable, so an image build has not been verified. |
 | Active GitHub CI | An example is in `docs/ci-workflow.example.yml`; it is not an active workflow. The connected credential cannot publish workflow files. |
 
 OAuth/SSO, email verification, password reset, cloud recording, an SFU, and paid Zoom products are outside the specified core features. They are not required to complete the core checklist above.

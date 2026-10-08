@@ -68,13 +68,24 @@ The new database seeds on first start without altering `backend/zoom.db`. Reusin
 
 ## Docker preparation
 
-`Dockerfile` builds the Next.js app, installs Python requirements, and runs the complete stack as the non-root `node` user behind one public port. `docker-compose.yml` maps port 3000 and mounts a named volume at `/app/storage` for SQLite persistence.
+`Dockerfile` uses a separate build stage for Next.js, installs Python requirements, and runs the complete stack as the non-root `node` user behind one public port. Development npm dependencies are removed from the runtime image. Next.js telemetry is disabled; Python output is unbuffered for container logs. The container health check calls `/api/health`, which checks SQLite as well as the backend.
+
+`docker-compose.yml` maps port 3000 and mounts a named volume at `/app/storage` for SQLite persistence. Stop other applications using port 3000 before starting it.
 
 ```sh
 docker compose up --build
 ```
 
-This Docker build has not been executed locally because the Docker daemon was unavailable. Run it before relying on the image for a submission. Keep one FastAPI worker/one app instance: room signaling is held in memory.
+Alternatively, build and run the Dockerfile directly:
+
+```sh
+docker build -t scaler-zoom-workplace .
+docker run --rm --name scaler-zoom-workplace -p 127.0.0.1:3000:3000 --mount source=scaler-zoom-data,target=/app/storage scaler-zoom-workplace
+```
+
+Open `http://localhost:3000`. This is a local container, with its own persistent SQLite volume. To use a different host port, change the first `3000` in the port mapping (for example, `127.0.0.1:3002:3000`). See logs with `docker logs scaler-zoom-workplace`; inspect health with `docker inspect --format '{{.State.Health.Status}}' scaler-zoom-workplace`. For Compose, use `docker compose logs` and `docker compose ps`.
+
+The Docker image was built successfully on Docker Desktop's Linux engine. All 12 API tests passed inside the image, and all 7 browser tests passed against a locally running container on port 3002. The non-root runtime and container health check passed. Recreating the container with the same named volume preserved accounts, meetings, attendance, and chat. Keep one FastAPI worker/one app instance: room signaling is held in memory.
 
 ## When deployment is authorized
 
