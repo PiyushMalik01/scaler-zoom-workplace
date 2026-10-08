@@ -1,5 +1,3 @@
-@import url("https://fonts.googleapis.com/css2?family=Inter:wght@400;450;500;550;600;650;700&display=swap");
-
 :root {
   --blue: #0b5cff;
   --blue-hover: #0049d7;
@@ -8,7 +6,9 @@
   --border: #e7e8ee;
   --surface: #f7f8fa;
   --radius: 12px;
-  --font: "Inter", -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+  --font:
+    system-ui, -apple-system, "Segoe UI", "Almaden Sans", Roboto, Helvetica,
+    Arial, sans-serif;
 }
 * {
   box-sizing: border-box;

@@ -10,6 +10,7 @@ from fastapi import WebSocket
 class Member:
     socket: WebSocket
     participant: dict
+    session_token: str = ''
     audio: bool = False
     video: bool = False
     sharing: bool = False

@@ -1,3 +1,12 @@
+export type User = { id: number; display_name: string; email: string };
+export class ApiError extends Error {
+  constructor(
+    message: string,
+    public status: number,
+  ) {
+    super(message);
+  }
+}
 export type Meeting = {
   id: string;
   title: string;
@@ -38,7 +47,10 @@ export async function api<T>(path: string, options?: RequestInit): Promise<T> {
     const body = await response.json().catch(() => ({}));
     const detail =
       typeof body.detail === "string" ? body.detail : body.detail?.[0]?.msg;
-    throw new Error(detail || "Something went wrong. Please try again.");
+    throw new ApiError(
+      detail || "Something went wrong. Please try again.",
+      response.status,
+    );
   }
   return response.status === 204 ? (undefined as T) : response.json();
 }

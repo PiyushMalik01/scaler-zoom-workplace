@@ -28,13 +28,16 @@ import { useMeeting } from "@/lib/useMeeting";
 import VideoTile, { VideoElement } from "./VideoTile";
 import { InviteDialog } from "./MeetingDialogs";
 import Modal from "./Modal";
+import Brand from "./Brand";
+import { useAuth } from "./AuthProvider";
 
 export default function MeetingRoom({ identifier }: { identifier: string }) {
   const router = useRouter(),
     room = useMeeting(identifier);
+  const { user } = useAuth();
   const [meeting, setMeeting] = useState<Meeting | null>(null),
     [loadError, setLoadError] = useState("");
-  const [name, setName] = useState("Ankit Sharma"),
+  const [name, setName] = useState(""),
     [panel, setPanel] = useState<"participants" | "chat" | null>(null);
   const [invite, setInvite] = useState(false),
     [leaveDialog, setLeaveDialog] = useState(false),
@@ -52,9 +55,12 @@ export default function MeetingRoom({ identifier }: { identifier: string }) {
     api<Meeting>(`/meetings/${identifier}`)
       .then(setMeeting)
       .catch((e) => setLoadError(e.message));
-    setName(localStorage.getItem("zoom-name") || "Ankit Sharma");
+    setName(user?.display_name || localStorage.getItem("zoom-name") || "");
     setShareOnJoin(new URLSearchParams(location.search).get("share") === "1");
   }, [identifier]);
+  useEffect(() => {
+    if (user && room.status === "preview") setName(user.display_name);
+  }, [user, room.status]);
   useEffect(() => {
     if (room.status !== "connected") return;
     const timer = setInterval(() => setElapsed((n) => n + 1), 1000);
@@ -116,24 +122,31 @@ export default function MeetingRoom({ identifier }: { identifier: string }) {
   if (
     loadError ||
     (meeting && ["ended", "cancelled"].includes(meeting.status)) ||
-    ["ended", "removed"].includes(room.status)
+    ["ended", "removed", "session-expired"].includes(room.status)
   ) {
     return (
       <div className="room-result">
-        <span className="zoom-word">zoom</span>
+        <Brand />
         <div>
           <ShieldCheck size={44} />
           <h1>
-            {room.status === "removed"
-              ? "You’ve been removed"
-              : loadError
-                ? "Unable to join meeting"
-                : "This meeting has ended"}
+            {room.status === "session-expired"
+              ? "You’ve been signed out"
+              : room.status === "removed"
+                ? "You’ve been removed"
+                : loadError
+                  ? "Unable to join meeting"
+                  : "This meeting has ended"}
           </h1>
           <p>
-            {room.status === "removed"
-              ? "The host removed you from this meeting."
-              : loadError || "Thank you for joining. We’ll see you next time."}
+            {room.status === "session-expired"
+              ? meeting?.is_host
+                ? "Sign in again to continue as the host."
+                : "Your session has ended. Return home to join again."
+              : room.status === "removed"
+                ? "The host removed you from this meeting."
+                : loadError ||
+                  "Thank you for joining. We’ll see you next time."}
           </p>
           <button className="button primary" onClick={leave}>
             Back to Home
@@ -154,12 +167,17 @@ export default function MeetingRoom({ identifier }: { identifier: string }) {
       <div className="prejoin-page">
         <header>
           <a className="brand" href="/">
-            <span className="zoom-word">zoom</span>
-            <span className="brand-divider" />
-            <span className="workplace-word">Workplace</span>
+            <Brand workplace />
           </a>
-          <a className="text-button" href="/">
-            Back to Home
+          <a
+            className="text-button"
+            href={
+              user
+                ? "/"
+                : `/signin?next=${encodeURIComponent(`/meeting/${identifier}`)}`
+            }
+          >
+            {user ? "Back to Home" : "Sign In"}
           </a>
         </header>
         <main className="prejoin-main">
@@ -196,10 +214,7 @@ export default function MeetingRoom({ identifier }: { identifier: string }) {
             )}
           </div>
           <form className="prejoin-form" onSubmit={join}>
-            <span className="eyebrow">
-              <ShieldCheck size={16} />
-              Ready when you are
-            </span>
+            <span className="eyebrow">Join Meeting</span>
             <h1>{meeting.title}</h1>
             <p className="meeting-id-label">
               Meeting ID: {formatId(identifier)}

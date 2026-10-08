@@ -1,5 +1,7 @@
 import type { Metadata } from "next";
 import "./globals.css";
+import "./workplace.css";
+import AuthProvider from "@/components/AuthProvider";
 export const metadata: Metadata = {
   title: "Zoom Workplace | Meetings",
   description:
@@ -10,7 +12,9 @@ export default function RootLayout({
 }: Readonly<{ children: React.ReactNode }>) {
   return (
     <html lang="en">
-      <body>{children}</body>
+      <body>
+        <AuthProvider>{children}</AuthProvider>
+      </body>
     </html>
   );
 }

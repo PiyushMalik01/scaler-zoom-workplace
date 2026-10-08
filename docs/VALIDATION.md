@@ -4,11 +4,17 @@ Validated on Windows with Node 22.17.1, Python 3.12, and Chromium using fake med
 
 - Next.js production build: passed.
 - TypeScript typecheck: passed.
-- Six isolated API/WebSocket tests: passed.
-- Three browser product tests: passed.
+- Twelve isolated API/WebSocket tests: passed.
+- Six browser product tests: passed against the complete local production server.
 - Same-origin public HTTPS `/api/health`: returned SQLite status `ok` during verification. The temporary tunnel was subsequently stopped at the user’s request; deployment is deferred.
 - Real WebRTC diagnostic: both peers reached `connected`; inbound video frames decoded on both peers (over 200 frames in the diagnostic call); audio/video tracks remained live.
 
-The browser suite covers scheduling and persistence across reload, invitation generation, nonexistent meeting errors, two independent browser sessions exchanging video, chat, host mute-all, raised hand, screen share, host removal, end-for-all, and mobile horizontal overflow. The API suite verifies session ownership, guest rejection for host actions, future-date/duration validation, SQL persistence, removal/rejoin blocking, and attendance closure.
+The browser suite covers welcome/signup, email-first sign-in, wrong-password feedback, account details and sign-out, login persistence across reload, guest meeting validation, mobile/tablet overflow, scheduling/invitations, two independent browser sessions exchanging real video, chat, host mute-all, raised hand, screen share, host removal, and end-for-all. Signing out in another tab closes the host room and ends its captured media tracks.
+
+The API suite verifies password hashing, normalized unique emails, password/name/email validation, HttpOnly/SameSite/Secure cookie attributes, session rotation/revocation/expiry, remembered login, login throttling, cross-origin rejection, account meeting isolation, ownership across login sessions, anonymous joining, host permissions, WebSocket ticket/session validation, schedule persistence/validation, removal/rejoin blocking, and attendance closure.
+
+Visual checks compared the signed-out screen and auth header/form against Zoom's public screens and inspected desktop (1440px), tablet (768px), and mobile (390px) captures. The authenticated workspace follows Zoom's documented left navigation and meeting actions. Exact pixel parity with every authenticated Zoom screen has not been established. Signup is local account creation; commercial Zoom email/age verification and third-party SSO are not implemented.
+
+Screenshots can be regenerated with `node scripts/capture.mjs` while the app is running. `PLAYWRIGHT_CHROMIUM_EXECUTABLE` can select an existing Chromium installation. One Windows browser run encountered an unavailable fake camera; the final full suite passed with actual video frames in both directions.
 
 Docker assets are provided but were not built locally because the Docker daemon was not running. Cross-network calls without a configured TURN relay were not tested. Deployment is deferred at the user’s request, and the temporary public preview has been stopped. The local production app remains available at http://localhost:3000. The repo includes a Render Blueprint and an optional GitHub Actions workflow template in `docs/ci-workflow.example.yml`. The connected GitHub credential does not have permission to publish active workflow files; copy the template to `.github/workflows/ci.yml` using your own workflow-enabled credential to enable CI.

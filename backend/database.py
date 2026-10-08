@@ -5,6 +5,7 @@ import sqlite3
 from contextlib import contextmanager
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
+from .security import hash_password
 
 
 def now():
@@ -30,11 +31,12 @@ def database():
 
 SCHEMA = '''
 CREATE TABLE IF NOT EXISTS users (
-    id INTEGER PRIMARY KEY, display_name TEXT NOT NULL, email TEXT NOT NULL UNIQUE
+    id INTEGER PRIMARY KEY, display_name TEXT NOT NULL, email TEXT NOT NULL UNIQUE,
+    password_hash TEXT NOT NULL DEFAULT '', created_at TEXT NOT NULL DEFAULT ''
 );
 CREATE TABLE IF NOT EXISTS sessions (
     token TEXT PRIMARY KEY, user_id INTEGER NOT NULL REFERENCES users(id),
-    created_at TEXT NOT NULL
+    created_at TEXT NOT NULL, expires_at TEXT, authenticated INTEGER NOT NULL DEFAULT 0
 );
 CREATE TABLE IF NOT EXISTS meetings (
     id TEXT PRIMARY KEY CHECK(length(id) = 11), host_user_id INTEGER NOT NULL REFERENCES users(id),
@@ -47,7 +49,7 @@ CREATE TABLE IF NOT EXISTS meetings (
 );
 CREATE TABLE IF NOT EXISTS participants (
     id TEXT PRIMARY KEY, meeting_id TEXT NOT NULL REFERENCES meetings(id),
-    session_token TEXT NOT NULL REFERENCES sessions(token), display_name TEXT NOT NULL,
+    session_token TEXT NOT NULL REFERENCES sessions(token), user_id INTEGER REFERENCES users(id), display_name TEXT NOT NULL,
     is_host INTEGER NOT NULL DEFAULT 0 CHECK(is_host IN (0,1)),
     joined_at TEXT NOT NULL, left_at TEXT, removed INTEGER NOT NULL DEFAULT 0
 );
@@ -73,7 +75,22 @@ def initialize():
     with database() as connection:
         connection.execute('PRAGMA journal_mode = WAL')
         connection.executescript(SCHEMA)
-        connection.execute("INSERT OR IGNORE INTO users VALUES (1, 'Ankit Sharma', 'ankit.sharma@example.com')")
+        # Additive migrations preserve meetings from the original default-user build.
+        additions = {
+            'users': [('password_hash', "TEXT NOT NULL DEFAULT ''"), ('created_at', "TEXT NOT NULL DEFAULT ''")],
+            'sessions': [('expires_at', 'TEXT'), ('authenticated', 'INTEGER NOT NULL DEFAULT 0')],
+            'participants': [('user_id', 'INTEGER REFERENCES users(id)')],
+        }
+        for table, columns in additions.items():
+            existing = {row['name'] for row in connection.execute(f'PRAGMA table_info({table})')}
+            for name, definition in columns:
+                if name not in existing:
+                    connection.execute(f'ALTER TABLE {table} ADD COLUMN {name} {definition}')
+        connection.execute("INSERT OR IGNORE INTO users (id,display_name,email,created_at) VALUES (1, 'Ankit Sharma', 'ankit.sharma@example.com', ?)", (now(),))
+        if not connection.execute('SELECT password_hash FROM users WHERE id=1').fetchone()['password_hash']:
+            connection.execute('UPDATE users SET password_hash=?,created_at=? WHERE id=1', (hash_password('ZoomDemo123!'), now()))
+        connection.execute('CREATE INDEX IF NOT EXISTS ix_meetings_host ON meetings(host_user_id, scheduled_at)')
+        connection.execute('CREATE INDEX IF NOT EXISTS ix_participants_user ON participants(user_id, meeting_id)')
         if connection.execute('SELECT COUNT(*) FROM meetings').fetchone()[0] == 0:
             current = datetime.now(timezone.utc)
             examples = [

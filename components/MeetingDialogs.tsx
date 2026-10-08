@@ -4,6 +4,7 @@ import { useRouter } from "next/navigation";
 import { CalendarDays, Check, Copy, Video } from "lucide-react";
 import Modal from "./Modal";
 import { api, copyText, formatId, Meeting, parseMeetingId } from "@/lib/api";
+import { useAuth } from "./AuthProvider";
 
 export function JoinDialog({
   onClose,
@@ -13,9 +14,10 @@ export function JoinDialog({
   sharing?: boolean;
 }) {
   const router = useRouter();
+  const { user } = useAuth();
   const [identifier, setIdentifier] = useState("");
   const [name, setName] = useState(
-    () => localStorage.getItem("zoom-name") || "Ankit Sharma",
+    () => user?.display_name || localStorage.getItem("zoom-name") || "",
   );
   const [audio, setAudio] = useState(true),
     [video, setVideo] = useState(true);
@@ -108,7 +110,8 @@ export function ScheduleDialog({
   onClose: () => void;
   onCreated: (meeting: Meeting) => void;
 }) {
-  const [title, setTitle] = useState("Ankit Sharma’s Zoom Meeting");
+  const { user } = useAuth();
+  const [title, setTitle] = useState(`${user?.display_name}’s Zoom Meeting`);
   const [description, setDescription] = useState("");
   const [start, setStart] = useState(() => {
     const value = new Date(Date.now() + 3600000);

@@ -1,13 +1,23 @@
 import { test, expect } from "@playwright/test";
+import type { Page } from "@playwright/test";
+
+async function signIn(page: Page) {
+  await page.goto("/signin");
+  await page.getByRole("button", { name: "Use demo account" }).click();
+  await page.getByRole("button", { name: "Sign In", exact: true }).click();
+  await expect(
+    page.getByRole("heading", { name: "Home", exact: true }),
+  ).toBeVisible();
+}
 
 test("schedule, persist, invite, and reject an invalid meeting", async ({
   page,
 }) => {
-  await page.goto("/");
+  await signIn(page);
   await expect(
-    page.getByRole("heading", { name: "Meet & connect" }),
+    page.getByRole("heading", { name: "Home", exact: true }),
   ).toBeVisible();
-  await page.getByRole("button", { name: /^Schedule Plan/ }).click();
+  await page.getByRole("button", { name: "Schedule", exact: true }).click();
   const title = `Review ${Date.now()}`;
   await page.getByLabel("Topic").fill(title);
   await page.getByLabel("Description").fill("Review the release together.");
@@ -21,7 +31,7 @@ test("schedule, persist, invite, and reject an invalid meeting", async ({
     page.getByRole("heading", { name: title, exact: true }),
   ).toBeVisible();
   await page.getByRole("button", { name: "Home", exact: true }).click();
-  await page.getByRole("button", { name: /^Join Connect/ }).click();
+  await page.getByRole("button", { name: "Join", exact: true }).click();
   await page.getByLabel("Meeting ID or invite link").fill("00000000000");
   await page
     .getByRole("dialog")
@@ -46,7 +56,7 @@ test("two browsers exchange real video, chat, mute, screen share, removal, and e
   const browserErrors: string[] = [];
   host.on("pageerror", (error) => browserErrors.push(error.message));
   guest.on("pageerror", (error) => browserErrors.push(error.message));
-  await host.goto("/");
+  await signIn(host);
   await host.getByRole("button", { name: /^New Meeting/ }).click();
   await expect(
     host.getByRole("button", { name: "Join Meeting", exact: true }),
@@ -144,7 +154,7 @@ test("two browsers exchange real video, chat, mute, screen share, removal, and e
 
 test("dashboard and join form fit a mobile viewport", async ({ page }) => {
   await page.setViewportSize({ width: 390, height: 844 });
-  await page.goto("/");
+  await signIn(page);
   await expect(
     page.getByRole("button", { name: /^New Meeting/ }),
   ).toBeVisible();
@@ -153,7 +163,7 @@ test("dashboard and join form fit a mobile viewport", async ({ page }) => {
       () => document.documentElement.scrollWidth <= innerWidth,
     ),
   ).toBe(true);
-  await page.getByRole("button", { name: /^Join Connect/ }).click();
+  await page.getByRole("button", { name: "Join", exact: true }).click();
   await expect(page.getByLabel("Your name")).toBeVisible();
   expect(
     await page.evaluate(

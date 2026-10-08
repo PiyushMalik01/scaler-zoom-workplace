@@ -16,7 +16,11 @@ export default function Modal({
   useEffect(() => {
     const prior = document.activeElement as HTMLElement;
     const element = ref.current;
-    element?.querySelector<HTMLElement>("input, button, select")?.focus();
+    (
+      element?.querySelector<HTMLElement>(
+        "input:not([readonly]),textarea,select",
+      ) || element?.querySelector<HTMLElement>("button")
+    )?.focus();
     function key(event: KeyboardEvent) {
       if (event.key === "Escape") onClose();
       if (event.key !== "Tab") return;

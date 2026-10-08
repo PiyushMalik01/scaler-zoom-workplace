@@ -26,6 +26,7 @@ export function useMeeting(identifier: string) {
     | "disconnected"
     | "ended"
     | "removed"
+    | "session-expired"
   >("preview");
   const [participants, setParticipants] = useState<Participant[]>([]),
     [messages, setMessages] = useState<ChatMessage[]>([]);
@@ -397,7 +398,11 @@ export function useMeeting(identifier: string) {
           });
           setAudio(false);
         } else if (data.type === "error") setError(data.message);
-        else if (data.type === "ended" || data.type === "removed") {
+        else if (
+          data.type === "ended" ||
+          data.type === "removed" ||
+          data.type === "session-expired"
+        ) {
           terminalRef.current = true;
           setStatus(data.type);
           releaseMedia();

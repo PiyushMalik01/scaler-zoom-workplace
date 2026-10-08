@@ -1,8 +1,6 @@
 # Zoom Workplace — Scaler Fullstack Assignment
 
-An original, functional Zoom-style meeting application built with **Next.js + TypeScript**, **Python + FastAPI**, and **SQLite**. No login is required: the dashboard assumes the default user Ankit Sharma. No API keys are needed to run locally.
-
-[Deploy to Render](https://render.com/deploy?repo=https://github.com/PiyushMalik01/scaler-zoom-workplace)
+An original, functional Zoom-style meeting application built with **Next.js + TypeScript**, **Python + FastAPI**, and **SQLite**. Sign up or sign in to manage your meetings; guests can join invitations without an account. No API keys are needed to run locally.
 
 ## Run locally
 
@@ -31,6 +29,8 @@ npm run dev
 
 Open **http://localhost:3000**. One command starts Next.js and FastAPI. The launcher automatically uses `.venv` when it exists. SQLite is initialized and seeded on the first start at `backend/zoom.db`. Python serves internally on port 8765; the browser communicates through the Next.js server on port 3000. Change `PORT` or `BACKEND_PORT` if needed.
 
+Click **Sign In → Use demo account → Sign In** to explore seeded meetings. The sample account is `ankit.sharma@example.com` / `ZoomDemo123!`. New accounts start with their own empty workspace. Passwords require at least eight characters, uppercase and lowercase letters, and a number. This independent assignment app uses its own accounts; real Zoom credentials do not work.
+
 Production:
 
 ```sh
@@ -46,7 +46,8 @@ docker compose up --build
 
 ## Features
 
-- Zoom-style dashboard with New Meeting, Join, Schedule, Share Screen, clock/agenda, upcoming meetings, previous meetings, and profile/settings placeholders.
+- Zoom-reference welcome and auth screens, left navigation, compact header, New Meeting, Join, Schedule, Share Screen, clock/agenda, upcoming/recent meetings, and account/profile/settings menus.
+- Signup, email-first sign-in, password visibility, validation/errors, Stay signed in, and Sign Out. Account-owned meetings and host roles persist across sessions; guests can join through invitations.
 - Instant meetings with unique 11-digit IDs and shareable invitations.
 - Join by meeting ID or invite URL; display name and audio/video preferences before joining; validation for missing, ended, or cancelled meetings.
 - Schedule topic, description, timezone-aware date/time, and duration; persist in SQLite; copy invitation and cancel upcoming meetings.
@@ -54,7 +55,7 @@ docker compose up --build
 - Server-checked host actions: mute all, mute one participant, remove a participant, and end for everyone. Removed browser sessions cannot rejoin that meeting.
 - Responsive desktop/mobile UI, keyboard-accessible dialogs, focus trapping, and loading/error/empty states.
 
-To test a call, open a new meeting in your normal browser and paste its invite into an **incognito window or another browser**. A separate browser session becomes a guest; tabs sharing the host cookie belong to the same default host. Allow camera/microphone permissions. You can join with devices unavailable or off.
+To test a call, sign in and open a new meeting in your normal browser, then paste its invite into an **incognito window or another browser**. A signed-out visitor or another account joins as a guest; the owner of the meeting joins as host. Allow camera/microphone permissions. You can join with devices unavailable or off.
 
 ## Architecture and database
 
@@ -68,10 +69,10 @@ Browser ←──── WebRTC audio/video directly ────→ Browser
 
 | Table          | Purpose                                               | Relationships                                            |
 | -------------- | ----------------------------------------------------- | -------------------------------------------------------- |
-| `users`        | Default workspace identity                            | One user → sessions and hosted meetings                  |
-| `sessions`     | Random HttpOnly browser capability                    | Belongs to user; referenced by host and attendance       |
+| `users`        | Account identity, salted password hash, creation time | One user → sessions and hosted meetings                  |
+| `sessions`     | Random HttpOnly token, expiry, authenticated state    | Belongs to user; referenced by attendance                 |
 | `meetings`     | Topic, description, UTC schedule, duration, lifecycle | Belongs to host user and optional owning browser session |
-| `participants` | Display name, role, join/leave time, removal          | Belongs to meeting and browser session                   |
+| `participants` | Display name, account (nullable for guests), role, attendance, removal | Belongs to meeting, browser session, and optional account |
 | `messages`     | Chat text and timestamp                               | Belongs to meeting and participant                       |
 
 Foreign keys, duration/status constraints, and indexes enforce integrity and support the upcoming/attendance/chat queries. Meeting IDs are randomly generated and checked for collisions. Database operations use parameterized SQL and scoped transactions. SQLite uses WAL. UI times use the viewer’s browser timezone; scheduling sends an explicit UTC timestamp.
@@ -81,8 +82,10 @@ REST creates a participant ticket tied to the HttpOnly cookie. The WebSocket ver
 ### Lifecycle and assumptions
 
 - A new meeting is `scheduled` until the first socket connects, then `active`; ending or the last participant leaving makes it `ended`. Cancelled meetings cannot be joined. Scheduled meetings may start early.
-- Seeded meetings have no browser owner; the first participant to join atomically claims host ownership. Created meetings belong to the creating browser session.
-- There is no account login, per the assignment. Browser ownership prevents guests in separate sessions from invoking host actions. This is a demonstration workspace, not a multi-tenant authentication system.
+- Seeded meetings belong to the demo account. Created meetings belong to the signed-in account. A guest cannot claim host ownership. The dashboard lists meetings owned by or attended while signed into that account.
+- Passwords use salted PBKDF2-SHA256 with 600,000 iterations. Sessions use random HttpOnly, SameSite=Lax cookies, with Secure enabled on HTTPS; expiry is one day or 30 days with Stay signed in. Login rotates tokens, logout revokes them and closes connected room sockets, and browser mutations reject cross-origin requests. Failed sign-in attempts are limited per IP/email in the single server process.
+- Signup creates an account immediately. Third-party OAuth, email verification, password recovery, and the commercial Zoom age/verification flow are outside this local assignment; no inert provider buttons or simulated email delivery are presented. The visual references inform the UI, while registration uses the app's own account system.
+- Schema migrations preserve existing meetings, add authentication columns, and keep existing meetings with the demo account. Sessions from the older default-user version require signing in again.
 - Chat persists, and the latest 100 messages are delivered to late joiners. Server restart closes stale attendance and active meetings.
 - A small-group WebRTC mesh is used. Run **one FastAPI worker**; multiple workers/instances need shared signaling/pub-sub. An SFU would be appropriate for large meetings.
 - Host mute is a server-authorized request honored by the client. Peer-to-peer media cannot provide media-server-enforced mute against a modified client.
@@ -98,9 +101,11 @@ npx playwright install chromium
 npm run test:e2e
 ```
 
-API tests use isolated temporary SQLite databases. Browser tests exercise scheduling/persistence, invalid IDs, mobile overflow, actual two-browser WebRTC video frames, chat delivery, host mute, screen sharing, removal, and meeting end. Fake camera/microphone devices are used; they do not touch personal devices.
+API tests use isolated temporary SQLite databases. Browser tests exercise signup, sign-in/errors, reload persistence, sign-out across tabs and camera shutdown, scheduling/persistence, invalid IDs, mobile/tablet overflow, actual two-browser WebRTC video frames, chat delivery, host mute, screen sharing, removal, and meeting end. Fake camera/microphone devices are used; they do not touch personal devices.
 
 ## Deployment
+
+Deployment is deferred at the user's request. The current authentication/UI changes are local and have not been pushed through the connected GitHub account. The configuration below is available for later deployment.
 
 `Dockerfile` runs the complete stack behind one public port, including WebSocket upgrades. `render.yaml` supplies a Render Blueprint. Create a Render service from this repository using Docker, then use the generated HTTPS URL. No frontend API URL changes are needed because all traffic is same-origin. The health check is `/api/health`.
 
@@ -111,10 +116,10 @@ Environment variables can be configured in the process or hosting dashboard. `sc
 ## Source organization
 
 ```text
-app/                   Next layouts, dashboard and meeting routes, styles
-components/            Dashboard, dialogs, video tiles, meeting room
+app/                   Next layouts, sign-in/signup/dashboard/meeting routes, styles
+components/            Auth provider/forms, dashboard, dialogs, video tiles, meeting room
 lib/                   API/types and WebRTC/media hook
-backend/               FastAPI routes, validation, schema/seed, room manager
+backend/               FastAPI routes, password/session security, schema/seed, room manager
 backend/tests/         Isolated API, persistence and WebSocket tests
 tests/                 Playwright product tests
 scripts/               Cross-platform launcher and HTTP/WebSocket proxy

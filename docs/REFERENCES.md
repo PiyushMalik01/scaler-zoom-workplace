@@ -10,6 +10,11 @@ Open-source projects reviewed for feature comparison:
 
 Primary product and technical references:
 
+- [Zoom web app interface](https://support.zoom.com/hc/en/article?id=zm_kb&sysparm_article=KB0064261): signed-out actions, left navigation, header/search, and meeting controls. Used for the current interface revision.
+- [Zoom web app welcome](https://app.zoom.us/wc/), [Sign in](https://www.zoom.us/signin), and [Sign up](https://www.zoom.us/signup): inspected live for welcome proportions, auth header, email-first login, field/button styling, and signup illustration. Account registration is adapted to the local backend and does not simulate Zoom's commercial verification/OAuth flows.
+- Brand assets: the Zoom SVG wordmark was saved from the official sign-in page; the signup illustration is from [Zoom's signup asset](https://st1.zoom.us/fe-static/fe-signup-login-active-v3/assets/banner-step-1.DTtJ7nly.png). They are used only to reproduce the educational brief's product appearance, with no affiliation implied.
+- [OWASP Password Storage Cheat Sheet](https://cheatsheetseries.owasp.org/cheatsheets/Password_Storage_Cheat_Sheet.html): PBKDF2-SHA256 work factor.
+
 - [Zoom application guidance, Home UI](https://media.zoom.com/download/assets/zoom-application-guidance-documentation-1-5-2021-12-06.pdf/a653a8fafcc011eea250fe4caaf6041e): recognizable four-action dashboard, top navigation, date/time agenda.
 - [Zoom scheduled meeting workflows](https://support.zoom.com/hc/en/article?id=zm_kb&sysparm_article=KB0060655): Home agenda and Upcoming/Previous meetings.
 - [Zoom Workplace design updates](https://www.zoom.com/en/blog/zoom-workplace-simplicity-ui-updates/): simple header and quick meeting shortcuts.
@@ -19,4 +24,4 @@ Primary product and technical references:
 - [Render persistent disks](https://render.com/docs/disks): SQLite storage for a permanent deployment.
 - [Cloudflare Quick Tunnels](https://developers.cloudflare.com/tunnel/get-started/quick-tunnels/): temporary public HTTPS previews.
 
-Zoom’s name is used to match the educational brief. This project is not affiliated with Zoom. Icons are from Lucide, and the font is Inter. No Zoom SDK or paid video service is required.
+Zoom’s name and wordmark are used to match the educational brief. This project is not affiliated with Zoom. Icons are from Lucide; the web app uses system fonts and the auth pages use a Helvetica/Arial fallback for Almaden Sans. No Zoom SDK or paid video service is required.

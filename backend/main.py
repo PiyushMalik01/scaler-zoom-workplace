@@ -1,13 +1,17 @@
 import json
 import os
 import secrets
+import sqlite3
 from contextlib import asynccontextmanager
 from datetime import datetime, timezone
 from fastapi import Depends, FastAPI, HTTPException, Request, Response, WebSocket, WebSocketDisconnect
 from fastapi.middleware.cors import CORSMiddleware
 from .database import database, initialize, meeting_id, now
-from .models import JoinRequest, MeetingCreate
+from .models import JoinRequest, MeetingCreate, LoginRequest, SignupRequest
 from .rooms import Member, rooms
+from .security import (COOKIE_NAME, check_origin, check_login_limit, failed_logins,
+                       hash_password, login_key, new_session, public_user,
+                       record_failed_login, verify_password)
 
 
 @asynccontextmanager
@@ -23,14 +27,26 @@ app.add_middleware(CORSMiddleware, allow_origins=origins, allow_credentials=True
 
 
 def session(request: Request, response: Response):
-    token = request.cookies.get('zoom_session', '')
+    if request.method not in ('GET', 'HEAD'):
+        check_origin(request)
+    token = request.cookies.get(COOKIE_NAME, '')
     with database() as connection:
-        if not connection.execute('SELECT 1 FROM sessions WHERE token=?', (token,)).fetchone():
-            token = secrets.token_urlsafe(32)
-            connection.execute('INSERT INTO sessions VALUES (?,1,?)', (token, now()))
-            secure = request.headers.get('x-forwarded-proto', request.url.scheme).split(',')[0] == 'https'
-            response.set_cookie('zoom_session', token, httponly=True, secure=secure, samesite='lax', max_age=30*86400)
-    return token
+        row = connection.execute('SELECT * FROM sessions WHERE token=? AND expires_at>?', (token, now())).fetchone()
+        if not row:
+            token = new_session(connection, request, response, 1, False)
+            return {'token': token, 'user_id': None}
+        return {'token': token, 'user_id': row['user_id'] if row['authenticated'] else None}
+
+
+def require_user(request: Request):
+    if request.method not in ('GET', 'HEAD'):
+        check_origin(request)
+    token = request.cookies.get(COOKIE_NAME, '')
+    with database() as connection:
+        row = connection.execute('SELECT user_id FROM sessions WHERE token=? AND authenticated=1 AND expires_at>?', (token, now())).fetchone()
+    if not row:
+        raise HTTPException(401, 'Sign in to your account to continue.')
+    return {'token': token, 'user_id': row['user_id']}
 
 
 def find_meeting(connection, identifier):
@@ -41,9 +57,9 @@ def find_meeting(connection, identifier):
     return row
 
 
-def public_meeting(row, token):
+def public_meeting(row, context):
     value = dict(row)
-    value['is_host'] = value.get('host_session') == token or value.get('host_session') is None
+    value['is_host'] = value['host_user_id'] == context['user_id']
     value.pop('host_session', None)
     value['invite_path'] = f"/meeting/{value['id']}"
     return value
@@ -57,67 +73,117 @@ def health():
 
 
 @app.get('/api/me')
-def me(token=Depends(session)):
+def me(context=Depends(require_user)):
     with database() as connection:
-        return dict(connection.execute('SELECT u.* FROM users u JOIN sessions s ON s.user_id=u.id WHERE s.token=?', (token,)).fetchone())
+        return public_user(connection.execute('SELECT * FROM users WHERE id=?', (context['user_id'],)).fetchone())
+
+
+@app.post('/api/auth/signup', status_code=201)
+def signup(body: SignupRequest, request: Request, response: Response):
+    check_origin(request)
+    encoded = hash_password(body.password)
+    with database() as connection:
+        try:
+            cursor = connection.execute('INSERT INTO users (display_name,email,password_hash,created_at) VALUES (?,?,?,?)',
+                                        (body.display_name, body.email, encoded, now()))
+        except sqlite3.IntegrityError:
+            raise HTTPException(409, 'An account with this email already exists. Sign in instead.')
+        old_token = request.cookies.get(COOKIE_NAME)
+        if old_token:
+            connection.execute('UPDATE sessions SET authenticated=0,expires_at=? WHERE token=?', (now(), old_token))
+        new_session(connection, request, response, cursor.lastrowid, True, body.remember)
+        return public_user(connection.execute('SELECT * FROM users WHERE id=?', (cursor.lastrowid,)).fetchone())
+
+
+@app.post('/api/auth/login')
+def login(body: LoginRequest, request: Request, response: Response):
+    check_origin(request)
+    key = login_key(request, body.email)
+    check_login_limit(key)
+    with database() as connection:
+        user = connection.execute('SELECT * FROM users WHERE email=? COLLATE NOCASE', (body.email,)).fetchone()
+        # Perform equivalent password work for an unknown email to reduce timing disclosure.
+        encoded = user['password_hash'] if user else connection.execute('SELECT password_hash FROM users WHERE id=1').fetchone()['password_hash']
+        valid = verify_password(body.password, encoded)
+        if not user or not valid:
+            record_failed_login(key)
+            raise HTTPException(401, 'Incorrect email or password.')
+        failed_logins.pop(key, None)
+        old_token = request.cookies.get(COOKIE_NAME)
+        if old_token:
+            connection.execute('UPDATE sessions SET authenticated=0,expires_at=? WHERE token=?', (now(), old_token))
+        new_session(connection, request, response, user['id'], True, body.remember)
+        return public_user(user)
+
+
+@app.post('/api/auth/logout', status_code=204)
+async def logout(request: Request, response: Response, context=Depends(session)):
+    with database() as connection:
+        connection.execute('UPDATE sessions SET authenticated=0,expires_at=? WHERE token=?', (now(), context['token']))
+    response.delete_cookie(COOKIE_NAME, path='/')
+    for room in list(rooms.rooms.values()):
+        for member in list(room.values()):
+            if member.session_token == context['token']:
+                await rooms.send(member, {'type': 'session-expired'})
+                await member.socket.close(code=1008)
 
 
 @app.get('/api/meetings')
-def list_meetings(token=Depends(session)):
+def list_meetings(context=Depends(require_user)):
     with database() as connection:
         rows = connection.execute('''SELECT m.*,u.display_name AS host_name,
             (SELECT COUNT(*) FROM participants p WHERE p.meeting_id=m.id) AS participant_count
-            FROM meetings m JOIN users u ON u.id=m.host_user_id ORDER BY scheduled_at''').fetchall()
-        return [public_meeting(row, token) for row in rows]
+            FROM meetings m JOIN users u ON u.id=m.host_user_id
+            WHERE m.host_user_id=? OR EXISTS (SELECT 1 FROM participants p WHERE p.meeting_id=m.id AND p.user_id=?)
+            ORDER BY scheduled_at''', (context['user_id'], context['user_id'])).fetchall()
+        return [public_meeting(row, context) for row in rows]
 
 
 @app.post('/api/meetings', status_code=201)
-def create_meeting(body: MeetingCreate, token=Depends(session)):
+def create_meeting(body: MeetingCreate, context=Depends(require_user)):
     with database() as connection:
         identifier = meeting_id(connection)
         scheduled = body.scheduled_at.astimezone(timezone.utc).isoformat() if body.scheduled_at else now()
+        user = connection.execute('SELECT display_name FROM users WHERE id=?', (context['user_id'],)).fetchone()
+        title = body.title or f"{user['display_name']}’s Zoom Meeting"
         connection.execute('''INSERT INTO meetings
             (id,host_user_id,host_session,title,description,scheduled_at,duration_minutes,kind,status,created_at)
-            VALUES (?,1,?,?,?,?,?,?,'scheduled',?)''',
-            (identifier, token, body.title, body.description.strip(), scheduled, body.duration_minutes,
+            VALUES (?,?,?,?,?,?,?,?,'scheduled',?)''',
+            (identifier, context['user_id'], context['token'], title, body.description.strip(), scheduled, body.duration_minutes,
              'scheduled' if body.scheduled_at else 'instant', now()))
-        return public_meeting(find_meeting(connection, identifier), token)
+        return public_meeting(find_meeting(connection, identifier), context)
 
 
 @app.get('/api/meetings/{identifier}')
-def get_meeting(identifier: str, token=Depends(session)):
+def get_meeting(identifier: str, context=Depends(session)):
     with database() as connection:
-        return public_meeting(find_meeting(connection, identifier), token)
+        return public_meeting(find_meeting(connection, identifier), context)
 
 
 @app.delete('/api/meetings/{identifier}', status_code=204)
-def cancel_meeting(identifier: str, token=Depends(session)):
+def cancel_meeting(identifier: str, context=Depends(require_user)):
     with database() as connection:
         meeting = find_meeting(connection, identifier)
-        if meeting['host_session'] not in (None, token):
+        if meeting['host_user_id'] != context['user_id']:
             raise HTTPException(403, 'Only the host can cancel this meeting.')
         if meeting['status'] != 'scheduled':
             raise HTTPException(409, 'Only an upcoming meeting can be cancelled.')
-        connection.execute("UPDATE meetings SET status='cancelled',host_session=? WHERE id=?", (token, identifier))
+        connection.execute("UPDATE meetings SET status='cancelled' WHERE id=?", (identifier,))
 
 
 @app.post('/api/meetings/{identifier}/join')
-def join_meeting(identifier: str, body: JoinRequest, token=Depends(session)):
+def join_meeting(identifier: str, body: JoinRequest, context=Depends(session)):
     with database() as connection:
         meeting = find_meeting(connection, identifier)
         if meeting['status'] in ('ended', 'cancelled'):
             raise HTTPException(409, 'This meeting has ended or was cancelled.')
-        if connection.execute('SELECT 1 FROM participants WHERE meeting_id=? AND session_token=? AND removed=1', (identifier, token)).fetchone():
+        if connection.execute('SELECT 1 FROM participants WHERE meeting_id=? AND removed=1 AND (session_token=? OR user_id=?)', (identifier, context['token'], context['user_id'])).fetchone():
             raise HTTPException(403, 'You were removed from this meeting by the host.')
-        # Seeded meetings belong to the default user; first host to join claims them atomically.
-        if meeting['host_session'] is None:
-            connection.execute('UPDATE meetings SET host_session=? WHERE id=? AND host_session IS NULL', (token, identifier))
-        meeting = find_meeting(connection, identifier)
-        is_host = meeting['host_session'] == token
+        is_host = meeting['host_user_id'] == context['user_id']
         participant_id = secrets.token_urlsafe(18)
         connection.execute('''INSERT INTO participants
-            (id,meeting_id,session_token,display_name,is_host,joined_at) VALUES (?,?,?,?,?,?)''',
-            (participant_id, identifier, token, body.display_name, int(is_host), now()))
+            (id,meeting_id,session_token,user_id,display_name,is_host,joined_at) VALUES (?,?,?,?,?,?,?)''',
+            (participant_id, identifier, context['token'], context['user_id'], body.display_name, int(is_host), now()))
         return {'participant_id': participant_id, 'is_host': is_host, 'display_name': body.display_name}
 
 
@@ -140,9 +206,10 @@ async def meeting_socket(socket: WebSocket, identifier: str, participant_id: str
         return
     token = socket.cookies.get('zoom_session')
     with database() as connection:
-        participant = connection.execute('''SELECT id,display_name,is_host FROM participants
-            WHERE id=? AND meeting_id=? AND session_token=? AND left_at IS NULL AND removed=0''',
-            (participant_id, identifier, token)).fetchone()
+        participant = connection.execute('''SELECT p.id,p.display_name,p.is_host FROM participants p
+            JOIN sessions s ON s.token=p.session_token WHERE p.id=? AND p.meeting_id=? AND p.session_token=?
+            AND p.left_at IS NULL AND p.removed=0 AND s.expires_at>?''',
+            (participant_id, identifier, token, now())).fetchone()
         meeting = connection.execute('SELECT status FROM meetings WHERE id=?', (identifier,)).fetchone()
         if not participant or not meeting or meeting['status'] in ('ended', 'cancelled'):
             await socket.close(code=1008)
@@ -155,7 +222,7 @@ async def meeting_socket(socket: WebSocket, identifier: str, participant_id: str
     if participant_id in room:
         await socket.close(code=1008)
         return
-    member = Member(socket, dict(participant))
+    member = Member(socket, dict(participant), session_token=token)
     member.participant['is_host'] = bool(member.participant['is_host'])
     room[participant_id] = member
     await rooms.send(member, {'type': 'welcome', 'self': member.public(),
@@ -164,6 +231,12 @@ async def meeting_socket(socket: WebSocket, identifier: str, participant_id: str
     try:
         while True:
             raw = await socket.receive_text()
+            with database() as connection:
+                valid_session = connection.execute('SELECT authenticated FROM sessions WHERE token=? AND expires_at>?', (token, now())).fetchone()
+            if not valid_session or (member.participant['is_host'] and not valid_session['authenticated']):
+                await rooms.send(member, {'type': 'session-expired'})
+                await socket.close(code=1008)
+                break
             if len(raw) > 100_000:
                 await rooms.send(member, {'type': 'error', 'message': 'Message is too large.'})
                 continue

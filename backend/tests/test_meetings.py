@@ -17,6 +17,7 @@ class MeetingTests(unittest.TestCase):
         self.env.start()
         self.client = TestClient(app)
         self.client.__enter__()
+        self.client.post('/api/auth/login', json={'email': 'ankit.sharma@example.com', 'password': 'ZoomDemo123!'})
         self.guest = TestClient(app)
         self.guest.get('/api/me')
 
@@ -63,7 +64,7 @@ class MeetingTests(unittest.TestCase):
     def test_missing_meeting_cancel_and_host_authority(self):
         self.assertEqual(self.client.get('/api/meetings/00000000000').status_code, 404)
         meeting = self.create()
-        self.assertEqual(self.guest.delete(f"/api/meetings/{meeting['id']}").status_code, 403)
+        self.assertEqual(self.guest.delete(f"/api/meetings/{meeting['id']}").status_code, 401)
         self.assertEqual(self.client.delete(f"/api/meetings/{meeting['id']}").status_code, 204)
         self.assertEqual(self.client.post(f"/api/meetings/{meeting['id']}/join", json={'display_name': 'Ankit'}).status_code, 409)
 

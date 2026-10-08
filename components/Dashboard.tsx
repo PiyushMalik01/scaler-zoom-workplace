@@ -1,5 +1,5 @@
 "use client";
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import {
   CalendarDays,
@@ -21,13 +21,18 @@ import {
   Video,
   X,
 } from "lucide-react";
-import { api, copyText, formatId, Meeting, timeOf } from "@/lib/api";
+import { api, ApiError, formatId, Meeting, timeOf } from "@/lib/api";
 import { InviteDialog, JoinDialog, ScheduleDialog } from "./MeetingDialogs";
 import Modal from "./Modal";
+import Brand from "./Brand";
+import { useAuth } from "./AuthProvider";
 
 type Tab = "Home" | "Meetings";
 export default function Dashboard() {
   const router = useRouter();
+  const { user, logout, refresh: refreshAccount } = useAuth();
+  const [profileMenu, setProfileMenu] = useState(false);
+  const menuRef = useRef<HTMLDivElement>(null);
   const [tab, setTab] = useState<Tab>("Home"),
     [filter, setFilter] = useState("upcoming");
   const [meetings, setMeetings] = useState<Meeting[]>([]),
@@ -51,11 +56,28 @@ export default function Dashboard() {
       setMeetings(rows);
       setError("");
     } catch (e) {
+      if (e instanceof ApiError && e.status === 401) void refreshAccount();
       setError((e as Error).message);
     } finally {
       setLoading(false);
     }
-  }, []);
+  }, [refreshAccount]);
+  useEffect(() => {
+    if (!profileMenu) return;
+    const click = (event: MouseEvent) => {
+      if (!menuRef.current?.contains(event.target as Node))
+        setProfileMenu(false);
+    };
+    const key = (event: KeyboardEvent) => {
+      if (event.key === "Escape") setProfileMenu(false);
+    };
+    document.addEventListener("mousedown", click);
+    document.addEventListener("keydown", key);
+    return () => {
+      document.removeEventListener("mousedown", click);
+      document.removeEventListener("keydown", key);
+    };
+  }, [profileMenu]);
   useEffect(() => {
     refresh();
     setClock(new Date());
@@ -124,34 +146,19 @@ export default function Dashboard() {
   const visible = (filter === "upcoming" ? upcoming : recent).filter((m) =>
     `${m.title} ${m.id}`.toLowerCase().includes(search.toLowerCase()),
   );
-  const displayName = "Ankit Sharma";
+  const displayName = user?.display_name || "";
+  const initials = displayName
+    .split(/\s+/)
+    .map((part) => part[0])
+    .slice(0, 2)
+    .join("")
+    .toUpperCase();
   return (
     <div className="workplace">
       <header className="app-header">
         <a className="brand" href="/" aria-label="Zoom Workplace home">
-          <span className="zoom-word">zoom</span>
-          <span className="brand-divider" />
-          <span className="workplace-word">Workplace</span>
+          <Brand workplace />
         </a>
-        <nav aria-label="Main navigation">
-          {(["Home", "Meetings"] as Tab[]).map((item) => (
-            <button
-              key={item}
-              onClick={() => {
-                setTab(item);
-                setSearch("");
-              }}
-              className={`nav-item ${tab === item ? "active" : ""}`}
-            >
-              {item === "Home" ? (
-                <Home size={20} />
-              ) : (
-                <CalendarDays size={20} />
-              )}
-              <span>{item}</span>
-            </button>
-          ))}
-        </nav>
         <div className="header-right">
           <div className="search-field">
             <Search size={17} />
@@ -164,7 +171,7 @@ export default function Dashboard() {
                 if (e.target.value) setTab("Meetings");
               }}
             />
-            <kbd>⌘ K</kbd>
+            <kbd>Ctrl K</kbd>
           </div>
           <button
             className="icon-button settings-button"
@@ -173,28 +180,98 @@ export default function Dashboard() {
           >
             <Settings size={21} />
           </button>
-          <button
-            className="avatar"
-            aria-label="Profile"
-            onClick={() => setDialog("profile")}
-          >
-            AS
-          </button>
+          <div className="profile-menu-anchor" ref={menuRef}>
+            <button
+              className="avatar"
+              aria-label="Profile"
+              aria-expanded={profileMenu}
+              onClick={() => setProfileMenu((v) => !v)}
+            >
+              {initials}
+              <span className="profile-status" />
+            </button>
+            {profileMenu && (
+              <div className="profile-menu">
+                <div className="account-summary">
+                  <div className="avatar large">{initials}</div>
+                  <div>
+                    <strong>{displayName}</strong>
+                    <span>{user?.email}</span>
+                    <small>Basic</small>
+                  </div>
+                </div>
+                <div className="account-presence">
+                  <span className="available-dot" />
+                  Available
+                </div>
+                <button
+                  onClick={() => {
+                    setProfileMenu(false);
+                    setDialog("profile");
+                  }}
+                >
+                  My Profile
+                </button>
+                <button
+                  onClick={() => {
+                    setProfileMenu(false);
+                    setDialog("settings");
+                  }}
+                >
+                  Settings
+                </button>
+                <button
+                  className="signout-item"
+                  onClick={async () => {
+                    try {
+                      await logout();
+                      router.replace("/");
+                    } catch (err) {
+                      setToast((err as Error).message);
+                    }
+                  }}
+                >
+                  Sign Out
+                </button>
+              </div>
+            )}
+          </div>
         </div>
       </header>
+      <aside className="workspace-sidebar">
+        <nav aria-label="Main navigation">
+          {(["Home", "Meetings"] as Tab[]).map((item) => (
+            <button
+              key={item}
+              className={`sidebar-item ${tab === item ? "active" : ""}`}
+              aria-current={tab === item ? "page" : undefined}
+              onClick={() => {
+                setTab(item);
+                setSearch("");
+              }}
+            >
+              {item === "Home" ? (
+                <Home size={24} />
+              ) : (
+                <CalendarDays size={24} />
+              )}
+              <span>{item}</span>
+            </button>
+          ))}
+        </nav>
+        <button
+          className="sidebar-item sidebar-settings"
+          onClick={() => setDialog("settings")}
+          aria-label="Open settings"
+        >
+          <Settings size={22} />
+          <span>Settings</span>
+        </button>
+      </aside>
       <main className="dashboard-main">
         <div className="page-heading">
           <div>
-            <h1>
-              {tab === "Home"
-                ? `Good ${clock && clock.getHours() >= 17 ? "evening" : clock && clock.getHours() >= 12 ? "afternoon" : "morning"}, Ankit`
-                : "Meetings"}
-            </h1>
-            <p>
-              {tab === "Home"
-                ? "Let’s make today a great day to connect."
-                : "Everything you need for your next conversation."}
-            </p>
+            <h1>{tab}</h1>
           </div>
           <div className="local-date">
             <CalendarDays size={16} />
@@ -218,10 +295,6 @@ export default function Dashboard() {
           <>
             <section className="home-workspace" aria-label="Meeting dashboard">
               <div className="quick-meetings">
-                <div className="quick-title">
-                  <h2>Meet & connect</h2>
-                  <span>One click. Any conversation.</span>
-                </div>
                 <div className="quick-grid">
                   <button
                     className="quick-action"
@@ -235,10 +308,7 @@ export default function Dashboard() {
                         <Video size={37} fill="currentColor" />
                       )}
                     </span>
-                    <span>
-                      New Meeting <ChevronDown size={14} />
-                    </span>
-                    <small>Start an instant meeting</small>
+                    <span>New Meeting</span>
                   </button>
                   <button
                     className="quick-action"
@@ -248,7 +318,6 @@ export default function Dashboard() {
                       <Plus size={45} strokeWidth={2.2} />
                     </span>
                     <span>Join</span>
-                    <small>Connect with a meeting ID</small>
                   </button>
                   <button
                     className="quick-action"
@@ -258,7 +327,6 @@ export default function Dashboard() {
                       <CalendarDays size={38} />
                     </span>
                     <span>Schedule</span>
-                    <small>Plan your next conversation</small>
                   </button>
                   <button
                     className="quick-action"
@@ -268,16 +336,7 @@ export default function Dashboard() {
                       <MonitorUp size={38} />
                     </span>
                     <span>Share Screen</span>
-                    <small>Present in a meeting</small>
                   </button>
-                </div>
-                <div className="personal-meeting">
-                  <ShieldCheck size={18} />
-                  <div>
-                    <strong>Your personal workspace</strong>
-                    <span>{displayName} · Ready to meet</span>
-                  </div>
-                  <span className="available-dot" />
                 </div>
               </div>
               <div className="agenda-card">
@@ -365,7 +424,6 @@ export default function Dashboard() {
                     <div className="empty-state">
                       <CalendarDays size={30} />
                       <strong>No meetings scheduled</strong>
-                      <span>Make some time to connect.</span>
                       <button
                         className="text-button"
                         onClick={() => setDialog("schedule")}
@@ -538,13 +596,6 @@ export default function Dashboard() {
             </div>
           </section>
         )}
-        <footer className="dashboard-footer">
-          <span>
-            <ShieldCheck size={14} />
-            Your next conversation starts here.
-          </span>
-          <span>Zoom Workplace</span>
-        </footer>
       </main>
       {dialog === "join" && <JoinDialog onClose={close} />}
       {dialog === "share" && <JoinDialog onClose={close} sharing />}
@@ -563,9 +614,9 @@ export default function Dashboard() {
       {dialog === "profile" && (
         <Modal title="My profile" onClose={close}>
           <div className="dialog-form profile-details">
-            <div className="avatar large">AS</div>
+            <div className="avatar large">{initials}</div>
             <h3>{displayName}</h3>
-            <p className="muted">ankit.sharma@example.com</p>
+            <p className="muted">{user?.email}</p>
             <span className="profile-plan">Basic account</span>
             <p>You’re signed in to your personal workspace.</p>
           </div>
